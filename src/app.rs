@@ -1,6 +1,10 @@
 use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 use tracing::{info, warn};
-use crate::convolution::*;
+use crate::convolutions::*;
+use crate::convolutions::base::SingleColorConvolution;
+use crate::convolutions::fire::{FireConvolution, HeatFireConvolution, RisingFireConvolution};
+use crate::convolutions::time::TimeConvolution;
 
 pub fn run(width: usize, height: usize) {
     let mut window = Window::new(
@@ -10,26 +14,37 @@ pub fn run(width: usize, height: usize) {
     );
 
     let convolutions = &mut window.convolutions;
-    // convolutions.push(ConvolutionType::Normal(
-    //     Box::new(ToGreenConvolution)
-    // ));
-    // convolutions.push(ConvolutionType::Normal(
-    //     Box::new(FireConvolution { intensity: 0.85f32 })
-    // ));
-    // convolutions.push(ConvolutionType::Normal(
-    //     Box::new(SingleColorConvolution {
-    //         red: 0,
-    //         green: 0,
-    //         blue: 0,
-    //     })
-    // ));
-    convolutions.push(ConvolutionType::Advanced(
+    convolutions.push((ConvolutionType::Normal( // Fondo Negro de la app
+        Box::new(SingleColorConvolution {
+            red: 20,
+            green: 20,
+            blue: 20,
+        })
+    ), true));
+
+    // Backgrounds
+    convolutions.push((ConvolutionType::Normal( // Fondo Negro de la app
+        Box::new(SingleColorConvolution {
+            red: 250,
+            green: 200,
+            blue: 20,
+        })
+    ), false));
+    convolutions.push((ConvolutionType::Normal(
+        Box::new(FireConvolution { intensity: 0.35 })
+    ), false));
+    convolutions.push((ConvolutionType::Advanced(
         Box::new(HeatFireConvolution::new(0.005f32, 0.5f32, width, height))
-    ));
-    convolutions.push(ConvolutionType::Normal(
+    ), false));
+    convolutions.push((ConvolutionType::Advanced(
+        Box::new(RisingFireConvolution::new(width, height))
+    ), false));
+    // End Backgrounds
+
+    convolutions.push((ConvolutionType::Normal( // Capa de la hora
         Box::new(TimeConvolution {f24: true, color: Option::from(Color::rgb(50, 0, 125 ))})
         // Box::new(TimeConvolution {f24: true, color: None})
-    ));
+    ), true));
 
     window.run();
 }
@@ -37,7 +52,7 @@ pub fn run(width: usize, height: usize) {
 // #[derive(Debug)]
 pub struct Window {
     buffer: Arc<Mutex<Vec<u32>>>,
-    convolutions: Vec<ConvolutionType>,
+    convolutions: Vec<(ConvolutionType, bool)>,
     width: usize,
     height: usize,
     window: minifb::Window,
@@ -53,7 +68,7 @@ impl Window {
                 borderless: false,
                 title: true,
                 resize: true,
-                scale: minifb::Scale::FitScreen,
+                scale: minifb::Scale::X2,
                 scale_mode: minifb::ScaleMode::Stretch,
                 topmost: true,
                 transparency: false,
@@ -61,7 +76,7 @@ impl Window {
             },
         ).expect("The window can't be created");
 
-        // window.set_target_fps(144);
+        window.set_target_fps(60);
 
         let buffer = vec![0u32; width * height];
 
@@ -75,7 +90,11 @@ impl Window {
     }
 
     fn reset_convolutions(&mut self) {
-        for convolution in self.convolutions.iter_mut() {
+        for (convolution, is_active) in self.convolutions.iter_mut() {
+            if !*is_active {
+                continue
+            }
+
             match convolution {
                 ConvolutionType::Normal(convolution) => {
                     let name = convolution.name();
@@ -103,14 +122,17 @@ impl Window {
     }
 
     fn apply_convolutions(&mut self) {
-        for convolution in self.convolutions.iter_mut() {
+        for (convolution, is_active) in self.convolutions.iter_mut() {
+            if !*is_active {
+                continue
+            }
+
             let name = match convolution {
                 ConvolutionType::Normal(conv) => conv.name(),
                 ConvolutionType::Advanced(conv) => conv.name(),
             };
 
             info!("Applying {:?} to buffer", name);
-
 
             let mut screen = self.buffer
                 .lock()
@@ -136,8 +158,29 @@ impl Window {
             && !self.window.is_key_down(minifb::Key::Escape)
             && !self.window.is_key_down(minifb::Key::Q)
         {
-            if self.window.is_key_down(minifb::Key::R) {
+            for (i, key) in [
+                minifb::Key::Key1, minifb::Key::Key2, minifb::Key::Key3,
+                minifb::Key::Key4
+            ]
+                .iter()
+                .enumerate()
+            {
+                if self.window.is_key_pressed(*key, minifb::KeyRepeat::No) && i+1<5 {
+                    if let Some((_, active)) = self.convolutions.get_mut(i+1) {
+                        *active = !*active;
+                    }
+                }
+            }
+
+            if self.window.is_key_down(minifb::Key::R) { // reset convolution active
                 self.reset_convolutions();
+            }
+
+            if self.window.is_key_released(minifb::Key::Key5) { // toggle clock
+                let size = self.convolutions.len();
+                if let Some((_, active)) = self.convolutions.get_mut(size-1) {
+                    *active = !*active;
+                }
             }
 
             self.apply_convolutions();

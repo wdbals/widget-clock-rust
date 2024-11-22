@@ -1,5 +1,5 @@
 pub mod app;
-pub mod convolution;
+pub mod convolutions;
 
 const WIDTH: usize = 128;
 const HEIGHT: usize = 128;
@@ -7,7 +7,7 @@ const HEIGHT: usize = 128;
 /// # Widget clock with procedural background
 /// Program that show the hour and have a beautiful and customizable background
 ///
-/// ## Autors
+/// ## Authors
 /// - Angel Balderas
 /// - Kevin Leandro
 /// - Diego Rosado
