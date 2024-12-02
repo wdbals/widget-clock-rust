@@ -34,7 +34,7 @@ pub fn run(width: usize, height: usize) {
 
     // Time's layer
     convolutions.push((ConvolutionType::Simple(
-        Box::new(TimeConvolution {f24: true, color: Option::from(Color::rgb(50, 0, 125 ))})
+        Box::new(TimeConvolution {f24: true, color: Option::from(Color::rgb(255, 255, 255 ))})
         // Box::new(TimeConvolution {f24: false, color: None})
     ), true));
 

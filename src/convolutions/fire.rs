@@ -248,14 +248,6 @@ impl IdkParConvolution {
 
 
     fn calculation(&mut self, width: usize, height: usize) {
-        // let local_buffer = &mut self.local_buffer;
-        //
-        // // Paralelizamos el cálculo de cada píxel usando su índice lineal
-        // local_buffer.par_iter_mut().enumerate().for_each(|(_, pixel)| {
-        //     let mut rng = rand::thread_rng();
-        //     *pixel = rng.gen_range(0..255);
-        // });
-
         let local_buffer = &mut self.local_buffer;
 
         let time = chrono::Local::now();
