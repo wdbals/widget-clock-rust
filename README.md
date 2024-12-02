@@ -1,6 +1,11 @@
 # widget-clock-rust-seqvspar
 proyecto personal de una pequeña pantalla que muestra la hora con un fondo animado
 
+## Integrantes
+Ángel Alejandro Balderas Pech.
+Diego Alexander Rosado Valle.
+Kevin Leandro Camelo Suaste.
+
 ## Descripción
 El proyecto realizado consiste en un programa elaborado con RUST en donde se proyecta un reloj con un fondo mutable generado por convoluciones de ruido en el que hace uso de funciones tanto secuenciales como paralelas mostrando la diferencia entre ambos tipos de programación haciendo uso de la fluidez de imagen como herramienta gráfica para la visualización del efecto de estos sobre el sistema.
 
