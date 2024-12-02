@@ -60,7 +60,7 @@ impl Window {
                 borderless: true,
                 title: true,
                 resize: true,
-                scale: minifb::Scale::X2,
+                scale: minifb::Scale::FitScreen,
                 scale_mode: minifb::ScaleMode::Stretch,
                 topmost: true,
                 transparency: false,
