@@ -1,3 +1,4 @@
+use std::time::Instant;
 use rayon::prelude::*;
 use rand::Rng;
 use crate::convolutions::{Color, Convolution, ConvolutionAdvanced, Palette};
@@ -105,20 +106,20 @@ impl ConvolutionAdvanced for HeatFireConvolution {
 }
 
 
-pub struct RisingFireConvolution {
-    fire_buffer: Vec<u32>,
+pub struct IdkConvolution {
+    local_buffer: Vec<u32>,
     palette: Palette,
 }
 
-impl RisingFireConvolution {
+impl IdkConvolution {
     pub fn new(width: usize, height: usize) -> Self {
-        RisingFireConvolution {
-            fire_buffer: vec![0; width*height],
+        IdkConvolution {
+            local_buffer: vec![0; width*height],
             palette: Self::gen_palette(),
         }
     }
 
-    pub fn gen_palette() -> Palette {
+    fn gen_palette() -> Palette {
         let mut palette = Palette::new();
         let colors = &mut palette;
 
@@ -143,55 +144,176 @@ impl RisingFireConvolution {
         palette
     }
 
-    fn gen_base(&mut self, width: usize, height: usize) {
-        let mut rng = rand::thread_rng();
-        let i = width * (height - 1);
-
-        for x in 0..width {
-            self.fire_buffer[i + x] = rng.gen_range(0..255);
-        }
-    }
-
     fn calculation(&mut self, width: usize, height: usize) {
-        let fire_buffer = &mut self.fire_buffer;
+        let local_buffer = &mut self.local_buffer;
 
-        for y in 0..height-1 {
-            for x in 1..width-1 {
-                let i = y * width + x;
+        let time = chrono::Local::now();
+        let time = time.timestamp_subsec_micros() as f32 / 1_000_000.0;
 
-                fire_buffer[i] = (
-                    10 * fire_buffer[i - 1]
-                        + 20 * fire_buffer[i]
-                        + 10 * fire_buffer[i + 1]
-                        + 160 * fire_buffer[i - 1 + width]
-                        + 320 * fire_buffer[i + width]
-                        + 160 * fire_buffer[i + 1 + width]
-                ) / (680f32 * 1.01) as u32;
-            }
-        }
-    }
-}
+        // Paralelizamos el cálculo de cada píxel usando su índice lineal
+        local_buffer.iter_mut().enumerate().for_each(|(i, pixel)| {
+            let x = (i % width) as f32;
+            let y = (i / width) as f32;
 
-impl Convolution for RisingFireConvolution {
-    fn name(&self) -> &str {
-        "RisingFire"
-    }
+            // Parametrización de la onda
+            let speed = 10f32; // Velocidad de la animación de la onda
+            let amplitude = 170f32; // Amplitud máxima (0 a 254)
+            let frequency_x = (5.0 * time).clamp(1f32, 4f32) * speed * std::f32::consts::PI / width as f32;  // Frecuencia en x
+            let frequency_y = (5.0 * time).clamp(1f32, 4f32) * speed * std::f32::consts::PI / height as f32; // Frecuencia en y
 
-    fn transform(&mut self, pixels: &mut [u32], width: usize, height: usize) {
-        self.gen_base(width, height);
-        self.calculation(width, height);
+            // Movimiento de la onda
+            let wave_x = (x * frequency_x + time * speed).sin(); // Onda senoidal en la dirección x
+            let wave_y = (y * frequency_y + time * speed).sin();
 
-        pixels.par_iter_mut().enumerate().for_each(|(i, pixel)| {
-            if *pixel != 0 {
-                *pixel = *self.palette.get(self.fire_buffer[i] as usize)
-                    .expect("Color not found in pallete");
+            // Combinación de las ondas en ambas direcciones (x, y)
+            let wave = (wave_x * wave_y) * amplitude;
+
+            // Margin
+            let mx = width as f32 * 0.025;
+            let my = height as f32 * 0.025;
+
+            if x > mx && x < width as f32 - mx && y > my && y < height as f32 - my {
+                let value = wave.clamp(10f32, 254f32) as u32;
+
+                *pixel = value;
             }
         });
     }
 }
 
-impl ConvolutionAdvanced for RisingFireConvolution {
+impl Convolution for IdkConvolution {
+    fn name(&self) -> &str {
+        "RisingFire"
+    }
+
+    fn transform(&mut self, pixels: &mut [u32], width: usize, height: usize) {
+        let timer = Instant::now();
+        // self.gen_base(width, height);
+        self.calculation(width, height);
+
+        pixels.iter_mut().enumerate().for_each(|(i,pixel) | {
+            if *pixel != 0 {
+                *pixel = *self.palette.get(self.local_buffer[i] as usize)
+                    .expect("Color not found in pallete");
+            }
+        });
+        println!("{:.4},", timer.elapsed().as_secs_f64());
+    }
+}
+
+impl ConvolutionAdvanced for IdkConvolution {
     fn reset(&mut self) {
-        self.fire_buffer = vec![0; self.fire_buffer.len()];
+        self.local_buffer = vec![0; self.local_buffer.len()];
+    }
+}
+
+pub struct IdkParConvolution {
+    local_buffer: Vec<u32>,
+    palette: Palette,
+}
+
+impl IdkParConvolution {
+    pub fn new(width: usize, height: usize) -> Self {
+        IdkParConvolution {
+            local_buffer: vec![0; width*height],
+            palette: Self::gen_palette(),
+        }
+    }
+
+    fn gen_palette() -> Palette {
+        let mut palette = Palette::new();
+        let colors = &mut palette;
+
+        let red_colors: Vec<u32> = (1..=85u8)
+            .into_par_iter()
+            .map(|i| Color::rgb(i * 3, 0, 0)) // Obtener el valor RGB
+            .collect();
+
+        let green_colors: Vec<u32> = (1..=85u8)
+            .into_par_iter()
+            .map(|i| Color::rgb(255, i * 3, 0)) // Obtener el valor RGB
+            .collect();
+
+        let blue_colors: Vec<u32> = (1..=85u8)
+            .into_par_iter()
+            .map(|i| Color::rgb(255, 255, i * 3)) // Obtener el valor RGB
+            .collect();
+
+        colors.add_colors(red_colors);
+        colors.add_colors(green_colors);
+        colors.add_colors(blue_colors);
+
+        palette
+    }
+
+
+    fn calculation(&mut self, width: usize, height: usize) {
+        // let local_buffer = &mut self.local_buffer;
+        //
+        // // Paralelizamos el cálculo de cada píxel usando su índice lineal
+        // local_buffer.par_iter_mut().enumerate().for_each(|(_, pixel)| {
+        //     let mut rng = rand::thread_rng();
+        //     *pixel = rng.gen_range(0..255);
+        // });
+
+        let local_buffer = &mut self.local_buffer;
+
+        let time = chrono::Local::now();
+        let time = time.timestamp_subsec_micros() as f32 / 1_000_000.0;
+
+        // Paralelizamos el cálculo de cada píxel usando su índice lineal
+        local_buffer.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+            let x = (i % width) as f32;
+            let y = (i / width) as f32;
+
+            // Parametrización de la onda
+            let speed = 10f32; // Velocidad de la animación de la onda
+            let amplitude = 170f32; // Amplitud máxima (0 a 254)
+            let frequency_x = (5.0 * time).clamp(1f32, 4f32) * speed * std::f32::consts::PI / width as f32;  // Frecuencia en x
+            let frequency_y = (5.0 * time).clamp(1f32, 4f32) * speed * std::f32::consts::PI / height as f32; // Frecuencia en y
+
+            // Movimiento de la onda
+            let wave_x = (x * frequency_x + time * speed).sin(); // Onda senoidal en la dirección x
+            let wave_y = (y * frequency_y + time * speed).sin();
+
+            // Combinación de las ondas en ambas direcciones (x, y)
+            let wave = (wave_x * wave_y) * amplitude;
+
+            // Margin
+            let mx = width as f32 * 0.025;
+            let my = height as f32 * 0.025;
+
+            if x > mx && x < width as f32 - mx && y > my && y < height as f32 - my {
+                let value = wave.clamp(10f32, 254f32) as u32;
+
+                *pixel = value;
+            }
+        });
+    }
+}
+
+impl Convolution for IdkParConvolution {
+    fn name(&self) -> &str {
+        "RisingFire"
+    }
+
+    fn transform(&mut self, pixels: &mut [u32], width: usize, height: usize) {
+        let timer = Instant::now();
+        // self.gen_base(width, height);
+        self.calculation(width, height);
+
+        pixels.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+            if *pixel != 0 {
+                *pixel = *self.palette.get(self.local_buffer[i] as usize)
+                    .expect("Color not found in pallete");
+            }
+        });
+        println!("{:.4},", timer.elapsed().as_secs_f64());
+    }
+}
+
+impl ConvolutionAdvanced for IdkParConvolution {
+    fn reset(&mut self) {
+        self.local_buffer = vec![0; self.local_buffer.len()];
     }
 }

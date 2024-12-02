@@ -14,6 +14,7 @@ impl Convolution for ToGreenConvolution {
     }
 }
 
+
 pub struct SingleColorConvolution {
     pub red: u8,
     pub green: u8,

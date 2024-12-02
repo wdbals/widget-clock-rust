@@ -34,13 +34,16 @@ impl Convolution for TimeConvolution {
             None => self.random_color(),
         };
 
-        let font_render = minifb_fonts::font5x8::new_renderer(
+        let font_render = minifb_fonts::font6x8::new_renderer(
             width,
             height,
             color,
         );
 
-        font_render.draw_text(&mut new_buffer, (width - time_string.len() * 5 + 7) / 2, (height - 7) / 2, time_string.as_str());
+        font_render.draw_text(&mut new_buffer,
+                              (width - time_string.len() * 5 + 7) / 2,
+                              (height - 7) / 2,
+                              time_string.as_str());
 
         for i in 0..pixels.len() {
             if new_buffer[i] != 0 {

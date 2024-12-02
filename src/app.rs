@@ -1,9 +1,8 @@
 use std::sync::{Arc, Mutex};
-use rayon::prelude::*;
 use tracing::{info, warn};
 use crate::convolutions::*;
 use crate::convolutions::base::SingleColorConvolution;
-use crate::convolutions::fire::{FireConvolution, HeatFireConvolution, RisingFireConvolution};
+use crate::convolutions::fire::{IdkConvolution, IdkParConvolution};
 use crate::convolutions::time::TimeConvolution;
 
 pub fn run(width: usize, height: usize) {
@@ -14,7 +13,9 @@ pub fn run(width: usize, height: usize) {
     );
 
     let convolutions = &mut window.convolutions;
-    convolutions.push((ConvolutionType::Normal( // Fondo Negro de la app
+
+    // Fondo Negro de la app
+    convolutions.push((ConvolutionType::Simple(
         Box::new(SingleColorConvolution {
             red: 20,
             green: 20,
@@ -23,27 +24,18 @@ pub fn run(width: usize, height: usize) {
     ), true));
 
     // Backgrounds
-    convolutions.push((ConvolutionType::Normal( // Fondo Negro de la app
-        Box::new(SingleColorConvolution {
-            red: 250,
-            green: 200,
-            blue: 20,
-        })
-    ), false));
-    convolutions.push((ConvolutionType::Normal(
-        Box::new(FireConvolution { intensity: 0.35 })
+    convolutions.push((ConvolutionType::Advanced(
+        Box::new(IdkConvolution::new(width, height))
     ), false));
     convolutions.push((ConvolutionType::Advanced(
-        Box::new(HeatFireConvolution::new(0.005f32, 0.5f32, width, height))
-    ), false));
-    convolutions.push((ConvolutionType::Advanced(
-        Box::new(RisingFireConvolution::new(width, height))
+        Box::new(IdkParConvolution::new(width, height))
     ), false));
     // End Backgrounds
 
-    convolutions.push((ConvolutionType::Normal( // Capa de la hora
+    // Time's layer
+    convolutions.push((ConvolutionType::Simple(
         Box::new(TimeConvolution {f24: true, color: Option::from(Color::rgb(50, 0, 125 ))})
-        // Box::new(TimeConvolution {f24: true, color: None})
+        // Box::new(TimeConvolution {f24: false, color: None})
     ), true));
 
     window.run();
@@ -60,12 +52,12 @@ pub struct Window {
 
 impl Window {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let mut window = minifb::Window::new(
+        let window = minifb::Window::new(
             title,
             width,
             height,
             minifb::WindowOptions {
-                borderless: false,
+                borderless: true,
                 title: true,
                 resize: true,
                 scale: minifb::Scale::X2,
@@ -76,7 +68,7 @@ impl Window {
             },
         ).expect("The window can't be created");
 
-        window.set_target_fps(60);
+        // window.set_target_fps(60);
 
         let buffer = vec![0u32; width * height];
 
@@ -96,7 +88,7 @@ impl Window {
             }
 
             match convolution {
-                ConvolutionType::Normal(convolution) => {
+                ConvolutionType::Simple(convolution) => {
                     let name = convolution.name();
                     warn!("{:?} hasn't reset", name);
                 }
@@ -128,7 +120,7 @@ impl Window {
             }
 
             let name = match convolution {
-                ConvolutionType::Normal(conv) => conv.name(),
+                ConvolutionType::Simple(conv) => conv.name(),
                 ConvolutionType::Advanced(conv) => conv.name(),
             };
 
@@ -140,7 +132,7 @@ impl Window {
 
             let mut new_buffer = screen.clone();
             match convolution {
-                ConvolutionType::Normal(conv) => conv.transform(&mut new_buffer, self.width, self.height),
+                ConvolutionType::Simple(conv) => conv.transform(&mut new_buffer, self.width, self.height),
                 ConvolutionType::Advanced(conv) => conv.transform(&mut new_buffer, self.width, self.height),
             }
 
@@ -158,14 +150,14 @@ impl Window {
             && !self.window.is_key_down(minifb::Key::Escape)
             && !self.window.is_key_down(minifb::Key::Q)
         {
+            // Backgrounds visibility
             for (i, key) in [
-                minifb::Key::Key1, minifb::Key::Key2, minifb::Key::Key3,
-                minifb::Key::Key4
+                minifb::Key::Key1, minifb::Key::Key2
             ]
                 .iter()
                 .enumerate()
             {
-                if self.window.is_key_pressed(*key, minifb::KeyRepeat::No) && i+1<5 {
+                if self.window.is_key_pressed(*key, minifb::KeyRepeat::No) && i+1<3 {
                     if let Some((_, active)) = self.convolutions.get_mut(i+1) {
                         *active = !*active;
                     }
@@ -176,9 +168,9 @@ impl Window {
                 self.reset_convolutions();
             }
 
-            if self.window.is_key_released(minifb::Key::Key5) { // toggle clock
-                let size = self.convolutions.len();
-                if let Some((_, active)) = self.convolutions.get_mut(size-1) {
+            if self.window.is_key_released(minifb::Key::T) { // toggle clock
+                let last = self.convolutions.len() - 1;
+                if let Some((_, active)) = self.convolutions.get_mut(last) {
                     *active = !*active;
                 }
             }

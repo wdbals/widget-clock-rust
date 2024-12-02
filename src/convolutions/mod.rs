@@ -2,8 +2,6 @@ pub mod base;
 pub mod fire;
 pub mod time;
 
-use rand::Rng;
-
 /// Color representation for MiniFB,
 pub struct Color;
 
@@ -38,6 +36,10 @@ impl Palette {
     fn add_color(&mut self, color: u32) {
         self.colors.push(color);
     }
+
+    pub fn add_colors(&mut self, colors: Vec<u32>) {
+        self.colors.extend(colors); // Suponiendo que `self.colors` es un Vec<u32>
+    }
 }
 
 /// Trait to get a convoluted buffer
@@ -55,6 +57,6 @@ pub trait ConvolutionAdvanced: Convolution {
 }
 
 pub enum ConvolutionType {
-    Normal(Box<dyn Convolution>),
+    Simple(Box<dyn Convolution>),
     Advanced(Box<dyn ConvolutionAdvanced>),
 }
